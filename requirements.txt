@@ -1,0 +1,6 @@
+# ADAS CARLA Requirements
+# Note: CARLA Python API should be installed separately from CARLA releases
+# https://github.com/carla-simulator/carla/releases
+
+numpy>=1.20.0
+pygame>=2.0.0
