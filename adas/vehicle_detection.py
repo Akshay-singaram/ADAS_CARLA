@@ -20,7 +20,7 @@ class VehicleDetector:
     Specializes in detecting lead vehicles and cut-ins.
     """
 
-    def __init__(self, vehicle, world, world_map):
+    def __init__(self, vehicle, world, world_map, event_bus):
         """
         Initialize the vehicle detector.
 
@@ -28,10 +28,12 @@ class VehicleDetector:
             vehicle: CARLA ego vehicle actor
             world: CARLA world
             world_map: CARLA world map
+            event_bus: Shared EventBus instance
         """
         self.vehicle = vehicle
         self.world = world
         self.map = world_map
+        self.event_bus = event_bus
 
         # Detection parameters
         self.detection_range = config.RADAR_RANGE
@@ -45,12 +47,18 @@ class VehicleDetector:
         self.lead_vehicle_id = None
         self.cutin_candidates = {}  # id -> tracking info
 
-    def update(self):
-        """
-        Update vehicle detection.
+        # Cached results from last scan
+        self._latest_lead_vehicle = None
+        self._latest_cutin = None
 
-        Returns:
-            dict: Detection results with 'lead_vehicle' and 'cutin_detected' info
+        # Subscribe to sensor phase tick
+        self.event_bus.subscribe('sensor_tick', self._on_sensor_tick, owner='Detector')
+
+    def _on_sensor_tick(self, payload):
+        """
+        Run detection scan and publish results.
+        Subscribed to: sensor_tick
+        Publishes: lead_vehicle_detected, cutin_detected
         """
         ego_transform = self.vehicle.get_transform()
         ego_velocity = self.vehicle.get_velocity()
@@ -126,10 +134,13 @@ class VehicleDetector:
                 if cutin_detected is None or cutin_info['distance'] < cutin_detected['distance']:
                     cutin_detected = cutin_info
 
-        return {
-            'lead_vehicle': lead_vehicle_info,
-            'cutin_detected': cutin_detected
-        }
+        # Cache for get_lead_vehicle() / get_cutin() accessors
+        self._latest_lead_vehicle = lead_vehicle_info
+        self._latest_cutin = cutin_detected
+
+        # Publish detection results
+        self.event_bus.publish('lead_vehicle_detected', {'lead_vehicle': lead_vehicle_info})
+        self.event_bus.publish('cutin_detected', {'cutin': cutin_detected})
 
     def _detect_cutin(self, vehicle_id, longitudinal, lateral, rel_vel_long, rel_vel_lat,
                       ego_lane_id, other_lane_id):
@@ -220,24 +231,12 @@ class VehicleDetector:
         return None
 
     def get_lead_vehicle(self):
-        """
-        Get info about the current lead vehicle.
-
-        Returns:
-            dict: Lead vehicle info or None
-        """
-        result = self.update()
-        return result['lead_vehicle']
+        """Return cached lead vehicle info from last scan."""
+        return self._latest_lead_vehicle
 
     def get_cutin(self):
-        """
-        Check for cut-in vehicles.
-
-        Returns:
-            dict: Cut-in vehicle info or None
-        """
-        result = self.update()
-        return result['cutin_detected']
+        """Return cached cut-in info from last scan."""
+        return self._latest_cutin
 
     def clear_tracking(self):
         """Clear all tracking data."""

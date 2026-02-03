@@ -18,6 +18,7 @@ from .lane_following import LaneFollower
 from .adaptive_cruise import AdaptiveCruiseControl
 from .vehicle_detection import VehicleDetector
 from utils.helpers import get_speed
+from utils.event_bus import EventBus
 import config
 
 
@@ -39,10 +40,26 @@ class ADASController:
         self.world = world
         self.map = world_map
 
-        # Initialize subsystems
-        self.lane_follower = LaneFollower(vehicle, world_map)
-        self.acc = AdaptiveCruiseControl(vehicle)
-        self.vehicle_detector = VehicleDetector(vehicle, world, world_map)
+        # Shared event bus — all subsystems publish/subscribe through this
+        self.event_bus = EventBus()
+
+        # Initialize subsystems (order matters: LaneFollower before ACC so
+        # its control_tick subscription fires first)
+        self.vehicle_detector = VehicleDetector(vehicle, world, world_map, self.event_bus)
+        self.lane_follower = LaneFollower(vehicle, world_map, self.event_bus)
+        self.acc = AdaptiveCruiseControl(vehicle, self.event_bus)
+
+        # Subscribe to subsystem output events
+        self.event_bus.subscribe('steering_output', self._on_steering_output, owner='Controller')
+        self.event_bus.subscribe('control_output', self._on_control_output, owner='Controller')
+
+        # Cached outputs — populated each frame by the event callbacks above
+        self._latest_steering_output = {'steering': 0.0, 'lane_id': None, 'is_in_lane': True}
+        self._latest_control_output = {
+            'throttle': 0.0, 'brake': 0.0,
+            'is_emergency_braking': False, 'following_distance': 0.0,
+            'lead_vehicle_distance': None, 'cutin_active': False
+        }
 
         # Control state
         self.enabled = True
@@ -59,9 +76,28 @@ class ADASController:
             'emergency_braking': False
         }
 
+    # ------------------------------------------------------------------
+    # Event callbacks (called synchronously during publish)
+    # ------------------------------------------------------------------
+
+    def _on_steering_output(self, payload):
+        """Cache steering result. Subscribed to: steering_output"""
+        self._latest_steering_output = payload
+
+    def _on_control_output(self, payload):
+        """Cache throttle/brake result. Subscribed to: control_output"""
+        self._latest_control_output = payload
+
+    # ------------------------------------------------------------------
+    # Main control loop
+    # ------------------------------------------------------------------
+
     def update(self, timestamp):
         """
-        Main control loop update.
+        Main control loop update.  Drives the two-phase event cycle:
+            Phase 1 — sensor_tick  →  Detector scans, publishes detections
+            Phase 2 — control_tick →  LaneFollower & ACC compute, publish outputs
+        Then assembles VehicleControl from the cached outputs.
 
         Args:
             timestamp: CARLA timestamp
@@ -82,41 +118,25 @@ class ADASController:
 
         self.last_update_time = timestamp.elapsed_seconds
 
-        # Update vehicle detection
-        detection_result = self.vehicle_detector.update()
-        lead_vehicle = detection_result['lead_vehicle']
-        cutin = detection_result['cutin_detected']
+        # Phase 1: sensor tick — Detector runs and publishes detection events
+        self.event_bus.publish('sensor_tick', {'dt': dt})
 
-        # Update status
-        self.status['current_speed'] = get_speed(self.vehicle)
-        self.status['lead_vehicle_distance'] = lead_vehicle['distance'] if lead_vehicle else None
-        self.status['cutin_warning'] = cutin is not None
+        # Phase 2: control tick — LaneFollower then ACC run and publish outputs
+        self.event_bus.publish('control_tick', {'dt': dt})
 
-        # Get steering from lane follower
-        steering = self.lane_follower.get_steering(dt)
-
-        # Handle cut-in with priority
-        if cutin is not None:
-            cutin_response = self.acc.react_to_cutin(cutin)
-            if cutin_response is not None:
-                throttle, brake = cutin_response
-                self.status['emergency_braking'] = brake > 0.8
-            else:
-                # Use cut-in as lead vehicle for ACC
-                throttle, brake = self.acc.get_control(cutin, dt)
-                self.status['emergency_braking'] = self.acc.is_emergency_braking
-        else:
-            # Normal ACC operation
-            throttle, brake = self.acc.get_control(lead_vehicle, dt)
-            self.status['emergency_braking'] = self.acc.is_emergency_braking
-
-        # Create control command
+        # Assemble VehicleControl from cached event outputs
         control = carla.VehicleControl()
-        control.steer = steering
-        control.throttle = throttle
-        control.brake = brake
+        control.steer = self._latest_steering_output['steering']
+        control.throttle = self._latest_control_output['throttle']
+        control.brake = self._latest_control_output['brake']
         control.hand_brake = False
         control.manual_gear_shift = False
+
+        # Update status from cached outputs
+        self.status['current_speed'] = get_speed(self.vehicle)
+        self.status['lead_vehicle_distance'] = self._latest_control_output['lead_vehicle_distance']
+        self.status['cutin_warning'] = self._latest_control_output['cutin_active']
+        self.status['emergency_braking'] = self._latest_control_output['is_emergency_braking']
 
         return control
 
@@ -144,17 +164,17 @@ class ADASController:
         Args:
             speed: Target speed in km/h
         """
-        self.acc.set_target_speed(speed)
+        self.event_bus.publish('target_speed_change', {'speed': speed})
         self.status['target_speed'] = self.acc.target_speed
 
     def increase_speed(self, increment=5.0):
         """Increase target speed."""
-        self.acc.increase_speed(increment)
+        self.event_bus.publish('target_speed_change', {'speed': self.acc.target_speed + increment})
         self.status['target_speed'] = self.acc.target_speed
 
     def decrease_speed(self, decrement=5.0):
         """Decrease target speed."""
-        self.acc.decrease_speed(decrement)
+        self.event_bus.publish('target_speed_change', {'speed': self.acc.target_speed - decrement})
         self.status['target_speed'] = self.acc.target_speed
 
     def get_status(self):
@@ -172,7 +192,7 @@ class ADASController:
 
     def get_debug_info(self):
         """
-        Get detailed debug information.
+        Get detailed debug information (all values from cached event outputs).
 
         Returns:
             dict: Debug information
@@ -181,10 +201,10 @@ class ADASController:
             'enabled': self.enabled,
             'current_speed': self.status['current_speed'],
             'target_speed': self.status['target_speed'],
-            'lead_distance': self.status['lead_vehicle_distance'],
-            'following_distance': self.acc.get_following_distance(),
-            'cutin_warning': self.status['cutin_warning'],
-            'emergency_brake': self.status['emergency_braking'],
-            'in_lane': self.lane_follower.is_in_lane(),
-            'lane_id': self.lane_follower.get_current_lane_id()
+            'lead_distance': self._latest_control_output['lead_vehicle_distance'],
+            'following_distance': self._latest_control_output['following_distance'],
+            'cutin_warning': self._latest_control_output['cutin_active'],
+            'emergency_brake': self._latest_control_output['is_emergency_braking'],
+            'in_lane': self._latest_steering_output['is_in_lane'],
+            'lane_id': self._latest_steering_output['lane_id']
         }

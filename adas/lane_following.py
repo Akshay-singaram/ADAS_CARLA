@@ -14,22 +14,42 @@ class LaneFollower:
     Lane following controller using waypoint-based steering.
     """
 
-    def __init__(self, vehicle, world_map):
+    def __init__(self, vehicle, world_map, event_bus):
         """
         Initialize the lane follower.
 
         Args:
             vehicle: CARLA ego vehicle actor
             world_map: CARLA world map
+            event_bus: Shared EventBus instance
         """
         self.vehicle = vehicle
         self.map = world_map
+        self.event_bus = event_bus
         self.previous_error = 0.0
 
         # PD controller gains
         self.k_p = config.LANE_FOLLOWING_K_P
         self.k_d = config.LANE_FOLLOWING_K_D
         self.lookahead_distance = config.LOOKAHEAD_DISTANCE
+
+        # Subscribe to control phase tick
+        self.event_bus.subscribe('control_tick', self._on_control_tick, owner='LaneFollower')
+
+    def _on_control_tick(self, payload):
+        """
+        Compute steering and publish result.
+        Subscribed to: control_tick
+        Publishes: steering_output
+        """
+        dt = payload['dt']
+        steering = self.get_steering(dt)
+
+        self.event_bus.publish('steering_output', {
+            'steering': steering,
+            'lane_id': self.get_current_lane_id(),
+            'is_in_lane': self.is_in_lane()
+        })
 
     def get_steering(self, dt):
         """

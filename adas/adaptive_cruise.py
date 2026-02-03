@@ -15,14 +15,16 @@ class AdaptiveCruiseControl:
     Adaptive Cruise Control (ACC) with emergency braking capability.
     """
 
-    def __init__(self, vehicle):
+    def __init__(self, vehicle, event_bus):
         """
         Initialize the ACC controller.
 
         Args:
             vehicle: CARLA ego vehicle actor
+            event_bus: Shared EventBus instance
         """
         self.vehicle = vehicle
+        self.event_bus = event_bus
         self.target_speed = config.TARGET_SPEED
         self.previous_speed_error = 0.0
         self.previous_distance_error = 0.0
@@ -39,6 +41,67 @@ class AdaptiveCruiseControl:
 
         # State
         self.is_emergency_braking = False
+
+        # Cached detection results (populated by sensor-phase events)
+        self._latest_lead_vehicle = None
+        self._latest_cutin = None
+
+        # Subscribe to events
+        self.event_bus.subscribe('lead_vehicle_detected', self._on_lead_vehicle_detected, owner='ACC')
+        self.event_bus.subscribe('cutin_detected', self._on_cutin_detected, owner='ACC')
+        self.event_bus.subscribe('control_tick', self._on_control_tick, owner='ACC')
+        self.event_bus.subscribe('target_speed_change', self._on_target_speed_change, owner='ACC')
+
+    # ------------------------------------------------------------------
+    # Event handlers
+    # ------------------------------------------------------------------
+
+    def _on_lead_vehicle_detected(self, payload):
+        """Cache latest lead vehicle info. Subscribed to: lead_vehicle_detected"""
+        self._latest_lead_vehicle = payload['lead_vehicle']
+
+    def _on_cutin_detected(self, payload):
+        """Cache latest cut-in info. Subscribed to: cutin_detected"""
+        self._latest_cutin = payload['cutin']
+
+    def _on_control_tick(self, payload):
+        """
+        Compute throttle/brake and publish result.
+        Subscribed to: control_tick
+        Publishes: control_output
+
+        Contains the cut-in priority logic: if a cut-in is detected, try the
+        aggressive cut-in response first; fall back to normal ACC using the
+        cut-in as a lead vehicle if the response is None.
+        """
+        dt = payload['dt']
+
+        if self._latest_cutin is not None:
+            cutin_response = self.react_to_cutin(self._latest_cutin)
+            if cutin_response is not None:
+                throttle, brake = cutin_response
+            else:
+                # Cut-in is far enough — treat it as a lead vehicle
+                throttle, brake = self.get_control(self._latest_cutin, dt)
+        else:
+            throttle, brake = self.get_control(self._latest_lead_vehicle, dt)
+
+        self.event_bus.publish('control_output', {
+            'throttle': throttle,
+            'brake': brake,
+            'is_emergency_braking': self.is_emergency_braking,
+            'following_distance': self.get_following_distance(),
+            'lead_vehicle_distance': self._latest_lead_vehicle['distance'] if self._latest_lead_vehicle else None,
+            'cutin_active': self._latest_cutin is not None
+        })
+
+    def _on_target_speed_change(self, payload):
+        """Update target speed. Subscribed to: target_speed_change"""
+        self.set_target_speed(payload['speed'])
+
+    # ------------------------------------------------------------------
+    # Core control logic (unchanged)
+    # ------------------------------------------------------------------
 
     def get_control(self, lead_vehicle_info, dt):
         """
