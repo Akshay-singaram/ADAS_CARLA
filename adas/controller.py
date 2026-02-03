@@ -3,9 +3,17 @@ Main ADAS Controller
 
 Integrates lane following, adaptive cruise control, and cut-in detection
 into a unified vehicle control system.
+
+Works with both real CARLA and simulation mode.
 """
 
-import carla
+try:
+    import carla
+except ImportError:
+    # Use simulation mock when CARLA is not available
+    from simulation.mock_carla import VehicleControl
+    carla = type('carla', (), {'VehicleControl': VehicleControl})()
+
 from .lane_following import LaneFollower
 from .adaptive_cruise import AdaptiveCruiseControl
 from .vehicle_detection import VehicleDetector
