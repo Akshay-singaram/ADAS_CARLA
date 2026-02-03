@@ -35,6 +35,7 @@ ADAS_CARLA/
 │   └── visualization.py     # 2D pygame visualization
 └── utils/
     ├── __init__.py
+    ├── event_bus.py         # Synchronous pub/sub event bus
     └── helpers.py           # Utility functions
 ```
 
@@ -132,22 +133,57 @@ Edit `config.py` to adjust parameters:
 
 ## How It Works
 
+### Event-Bus Architecture
+
+All ADAS subsystems communicate through a shared `EventBus` rather than direct method calls. The controller drives a two-phase event cycle every frame; each subsystem subscribes to the events it needs and publishes its outputs.
+
+```
+Controller.update()
+  │
+  ├─ publish('sensor_tick')
+  │     └─> Detector  ──> publish('lead_vehicle_detected')  ──> ACC caches
+  │                   ──> publish('cutin_detected')          ──> ACC caches
+  │
+  └─ publish('control_tick')
+        ├─> LaneFollower ──> publish('steering_output')  ──> Controller caches
+        └─> ACC          ──> publish('control_output')   ──> Controller caches
+```
+
+Speed-change commands (UP/DOWN keys) are also published as `target_speed_change` events rather than calling ACC directly. You can inspect the full event topology at runtime via `adas.event_bus.get_subscribers(event_name)`.
+
+| Event | Published by | Subscribed by |
+|-------|-------------|---------------|
+| `sensor_tick` | Controller | Detector |
+| `lead_vehicle_detected` | Detector | ACC |
+| `cutin_detected` | Detector | ACC |
+| `control_tick` | Controller | LaneFollower, ACC |
+| `steering_output` | LaneFollower | Controller |
+| `control_output` | ACC | Controller |
+| `target_speed_change` | Controller | ACC |
+
 ### Lane Following
 Uses CARLA's waypoint system to get the road geometry. A PD controller calculates steering based on:
 - Heading error to the lookahead waypoint
 - Lateral offset from lane center
+
+Publishes its result as a `steering_output` event each frame.
 
 ### Adaptive Cruise Control
 Maintains the target speed while adapting to vehicles ahead:
 - Calculates dynamic following distance based on current speed
 - Reduces speed when approaching slower vehicles
 - Triggers emergency braking when collision is imminent
+- Owns the cut-in priority logic: tries aggressive braking first, falls back to normal ACC if the cut-in is far enough
+
+Subscribes to `lead_vehicle_detected` and `cutin_detected`; publishes `control_output`.
 
 ### Cut-in Detection
 Monitors adjacent lanes for vehicles that may cut in:
 - Tracks lateral position and velocity of nearby vehicles
 - Detects when a vehicle starts moving into the ego lane
 - Triggers proactive braking response
+
+Runs during the sensor phase and publishes `cutin_detected` when a cut-in is confirmed.
 
 ## API Usage
 
