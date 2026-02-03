@@ -6,6 +6,7 @@ ADAS Configuration Parameters
 CARLA_HOST = 'localhost'
 CARLA_PORT = 2000
 CARLA_TIMEOUT = 10.0
+CARLA_MAP = 'Town01'  # Town01 and Town02 are the smallest maps
 
 # Vehicle Settings
 TARGET_SPEED = 30.0  # km/h
@@ -15,7 +16,7 @@ MIN_SPEED = 0.0  # km/h
 # Lane Following Parameters
 LANE_FOLLOWING_K_P = 1.0  # Proportional gain for steering
 LANE_FOLLOWING_K_D = 0.1  # Derivative gain for steering
-LOOKAHEAD_DISTANCE = 5.0  # meters ahead to look for waypoints
+LOOKAHEAD_DISTANCE = 10.0  # meters ahead to look for waypoints
 
 # Adaptive Cruise Control Parameters
 SAFE_DISTANCE = 10.0  # minimum safe distance in meters

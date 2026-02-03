@@ -10,6 +10,7 @@ Advanced Driver Assistance System (ADAS) implementation for the CARLA Simulator.
 - **Adaptive Cruise Control (ACC)**: Speed regulation with dynamic following distance
 - **Cut-in Detection & Reaction**: Detects vehicles cutting into the lane and triggers appropriate braking response
 - **Emergency Braking**: Automatic emergency braking when collision is imminent
+- **Manual Driving Mode**: Toggle lane-follow off and drive the car yourself with WASD
 - **Simulation Mode**: Test ADAS without CARLA (requires only pygame)
 
 ## Project Structure
@@ -47,9 +48,9 @@ ADAS_CARLA/
 - numpy
 
 ### CARLA Mode
-- Python 3.7+
-- CARLA Simulator 0.9.x (requires 16GB+ RAM)
-- CARLA Python API
+- Python 3.12 (required — the CARLA 0.9.16 wheel is built for cp312)
+- CARLA Simulator 0.9.16 (requires 16GB+ RAM)
+- CARLA Python API (`.whl` ships inside the CARLA download)
 - pygame
 - numpy
 
@@ -59,7 +60,12 @@ ADAS_CARLA/
 pip install -r requirements.txt
 ```
 
-For CARLA mode, also install the CARLA Python API from [CARLA Releases](https://github.com/carla-simulator/carla/releases).
+For CARLA mode, install the wheel that ships inside the CARLA download:
+
+```bash
+py -3.12 -m pip install "path\to\CARLA_0.9.16\PythonAPI\carla\dist\carla-0.9.16-cp312-cp312-win_amd64.whl"
+py -3.12 -m pip install pygame numpy
+```
 
 ## Usage
 
@@ -83,21 +89,28 @@ This mode includes pre-built scenarios to test all ADAS features.
 
 2. Run the ADAS demo:
    ```bash
-   python main.py
+   py -3.12 main.py
    ```
 
-### Controls
+### Controls (CARLA Mode)
 
 | Key | Action |
 |-----|--------|
 | SPACE | Toggle ADAS on/off |
-| UP / W | Increase target speed |
-| DOWN / S | Decrease target speed |
-| 1 | Load lead vehicle scenario |
-| 2 | Load cut-in scenario |
-| 3 | Load slow vehicle scenario |
-| 4 | Load traffic scenario |
-| 5 | Load emergency brake scenario |
+| L | Toggle manual / lane-follow mode |
+| UP / DOWN | Increase / decrease target speed (auto mode) |
+| W | Throttle — progressive ramp (manual mode) |
+| S | Brake — progressive ramp (manual mode) |
+| A / D | Steer left / right (manual mode) |
+| ESC | Quit |
+
+### Controls (Simulation Mode)
+
+| Key | Action |
+|-----|--------|
+| SPACE | Toggle ADAS on/off |
+| UP / DOWN | Increase / decrease target speed |
+| 1–5 | Load test scenario |
 | ESC | Quit |
 
 ### Test Scenarios (Simulation Mode)

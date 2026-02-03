@@ -10,8 +10,10 @@ This script demonstrates the ADAS system in CARLA simulator with:
 Controls:
     ESC     - Quit
     SPACE   - Toggle ADAS on/off
-    UP/W    - Increase target speed
-    DOWN/S  - Decrease target speed
+    L       - Toggle manual / lane-follow mode
+    UP/DOWN - Increase / decrease target speed (auto mode)
+    W/S     - Throttle / brake (manual mode, progressive)
+    A/D     - Steer left / right (manual mode)
 
 Requirements:
     - CARLA simulator running on localhost:2000
@@ -19,6 +21,7 @@ Requirements:
 """
 
 import sys
+import math
 import time
 import pygame
 import carla
@@ -31,7 +34,7 @@ import config
 class ADASDemoDisplay:
     """Simple pygame display for ADAS status."""
 
-    def __init__(self, width=400, height=300):
+    def __init__(self, width=400, height=350):
         pygame.init()
         pygame.font.init()
         self.display = pygame.display.set_mode((width, height))
@@ -52,6 +55,12 @@ class ADASDemoDisplay:
         title = self.font_large.render('ADAS Status', True, (255, 255, 255))
         self.display.blit(title, (self.width // 2 - title.get_width() // 2, y))
         y += 40
+
+        # Mode
+        manual_mode = debug_info.get('manual_mode', False)
+        mode_color = (255, 200, 0) if manual_mode else (0, 200, 255)
+        self._draw_text(f'Mode: {"MANUAL" if manual_mode else "AUTO"}  [L]', y, mode_color)
+        y += line_height
 
         # Status items
         enabled = debug_info.get('enabled', False)
@@ -98,10 +107,13 @@ class ADASDemoDisplay:
             y += line_height
 
         # Controls hint
-        y = self.height - 60
-        self._draw_text('SPACE: Toggle | UP/DOWN: Speed', y, (150, 150, 150))
+        y = self.height - 75
+        self._draw_text('SPACE: ADAS | L: Manual | ESC: Quit', y, (150, 150, 150))
         y += line_height
-        self._draw_text('ESC: Quit', y, (150, 150, 150))
+        if manual_mode:
+            self._draw_text('WASD: Drive | A/D: Steer', y, (150, 150, 150))
+        else:
+            self._draw_text('UP/DOWN: Target Speed', y, (150, 150, 150))
 
         pygame.display.flip()
 
@@ -113,6 +125,7 @@ class ADASDemoDisplay:
         """Handle pygame events. Returns (running, events_dict)."""
         events = {
             'toggle_adas': False,
+            'toggle_manual': False,
             'increase_speed': False,
             'decrease_speed': False
         }
@@ -125,9 +138,11 @@ class ADASDemoDisplay:
                     return False, events
                 elif event.key == pygame.K_SPACE:
                     events['toggle_adas'] = True
-                elif event.key in (pygame.K_UP, pygame.K_w):
+                elif event.key == pygame.K_l:
+                    events['toggle_manual'] = True
+                elif event.key == pygame.K_UP:
                     events['increase_speed'] = True
-                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                elif event.key == pygame.K_DOWN:
                     events['decrease_speed'] = True
 
         return True, events
@@ -182,6 +197,7 @@ def main():
         client = carla.Client(config.CARLA_HOST, config.CARLA_PORT)
         client.set_timeout(config.CARLA_TIMEOUT)
 
+        client.load_world(config.CARLA_MAP)
         world = client.get_world()
         world_map = world.get_map()
 
@@ -193,6 +209,9 @@ def main():
         settings.synchronous_mode = True
         settings.fixed_delta_seconds = 1.0 / config.CONTROL_FREQUENCY
         world.apply_settings(settings)
+
+        # Get spectator for camera follow
+        spectator = world.get_spectator()
 
         # Spawn ego vehicle
         print('Spawning ego vehicle...')
@@ -213,12 +232,35 @@ def main():
 
         print('ADAS Demo started! Press SPACE to toggle, ESC to quit.')
 
+        # Manual control state
+        manual_mode = False
+        manual_throttle = 0.0
+        manual_brake = 0.0
+        manual_steer = 0.0
+        THROTTLE_RAMP = 0.4   # per second
+        BRAKE_RAMP = 0.6      # per second
+
         # Main loop
+        target_dt = 1.0 / config.CONTROL_FREQUENCY
         running = True
         while running:
+            loop_start = time.time()
+
             # Tick the world
             world.tick()
             timestamp = world.get_snapshot().timestamp
+
+            # Follow ego vehicle with spectator camera
+            ego_transform = ego_vehicle.get_transform()
+            yaw_rad = math.radians(ego_transform.rotation.yaw)
+            spectator.set_transform(carla.Transform(
+                carla.Location(
+                    x=ego_transform.location.x - 10 * math.cos(yaw_rad),
+                    y=ego_transform.location.y - 10 * math.sin(yaw_rad),
+                    z=ego_transform.location.z + 5
+                ),
+                carla.Rotation(yaw=ego_transform.rotation.yaw, pitch=-20)
+            ))
 
             # Handle input
             running, events = display.handle_events()
@@ -226,6 +268,13 @@ def main():
             if events['toggle_adas']:
                 enabled = adas.toggle()
                 print(f'ADAS {"enabled" if enabled else "disabled"}')
+
+            if events['toggle_manual']:
+                manual_mode = not manual_mode
+                manual_throttle = 0.0
+                manual_brake = 0.0
+                manual_steer = 0.0
+                print(f'Mode: {"Manual" if manual_mode else "Lane Follow"}')
 
             if events['increase_speed']:
                 adas.increase_speed()
@@ -235,12 +284,61 @@ def main():
                 adas.decrease_speed()
                 print(f'Target speed: {adas.status["target_speed"]:.1f} km/h')
 
-            # Update ADAS and apply control
-            control = adas.update(timestamp)
+            # Control
+            if manual_mode:
+                keys = pygame.key.get_pressed()
+
+                # Throttle (W) / Brake (S) — progressive ramp
+                if keys[pygame.K_w]:
+                    manual_throttle = min(1.0, manual_throttle + THROTTLE_RAMP * target_dt)
+                    manual_brake = 0.0
+                elif keys[pygame.K_s]:
+                    manual_brake = min(1.0, manual_brake + BRAKE_RAMP * target_dt)
+                    manual_throttle = 0.0
+                else:
+                    manual_throttle = 0.0
+                    manual_brake = 0.0
+
+                # Steering (A left / D right)
+                if keys[pygame.K_a]:
+                    manual_steer = -0.7
+                elif keys[pygame.K_d]:
+                    manual_steer = 0.7
+                else:
+                    manual_steer = 0.0
+
+                control = carla.VehicleControl()
+                control.throttle = manual_throttle
+                control.brake = manual_brake
+                control.steer = manual_steer
+            else:
+                control = adas.update(timestamp)
+
             ego_vehicle.apply_control(control)
 
             # Update display
-            display.update(adas.get_status(), adas.get_debug_info())
+            if manual_mode:
+                debug_info = {
+                    'enabled': False,
+                    'manual_mode': True,
+                    'current_speed': get_speed(ego_vehicle),
+                    'target_speed': 0,
+                    'lead_distance': None,
+                    'following_distance': 0,
+                    'cutin_warning': False,
+                    'emergency_brake': False,
+                    'in_lane': False,
+                    'lane_id': None
+                }
+            else:
+                debug_info = adas.get_debug_info()
+                debug_info['manual_mode'] = False
+            display.update(adas.get_status(), debug_info)
+
+            # Rate-limit loop to CONTROL_FREQUENCY
+            sleep_time = target_dt - (time.time() - loop_start)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     except KeyboardInterrupt:
         print('\nInterrupted by user.')
