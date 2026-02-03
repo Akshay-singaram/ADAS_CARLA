@@ -10,11 +10,16 @@ def get_speed(vehicle):
     Get vehicle speed in km/h.
 
     Args:
-        vehicle: CARLA vehicle actor
+        vehicle: CARLA vehicle actor or SimulatedVehicle
 
     Returns:
         float: Speed in km/h
     """
+    # Check if it's a simulated vehicle with get_speed_kmh method
+    if hasattr(vehicle, 'get_speed_kmh'):
+        return vehicle.get_speed_kmh()
+
+    # CARLA vehicle - get velocity vector
     velocity = vehicle.get_velocity()
     speed_ms = math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2)
     return speed_ms * 3.6  # Convert m/s to km/h

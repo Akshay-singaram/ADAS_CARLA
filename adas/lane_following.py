@@ -88,8 +88,13 @@ class LaneFollower:
 
     def _get_lane_type(self):
         """Get the lane type for waypoint queries."""
-        import carla
-        return carla.LaneType.Driving
+        try:
+            import carla
+            return carla.LaneType.Driving
+        except ImportError:
+            # Simulation mode - return mock lane type
+            from simulation.mock_carla import LaneType
+            return LaneType.Driving
 
     def _get_lookahead_waypoint(self, current_waypoint):
         """

@@ -2,64 +2,81 @@
 
 Advanced Driver Assistance System (ADAS) implementation for the CARLA Simulator.
 
+**Now includes a lightweight simulation mode - no CARLA required!**
+
 ## Features
 
 - **Lane Following**: Waypoint-based lane keeping with PD steering control
 - **Adaptive Cruise Control (ACC)**: Speed regulation with dynamic following distance
 - **Cut-in Detection & Reaction**: Detects vehicles cutting into the lane and triggers appropriate braking response
 - **Emergency Braking**: Automatic emergency braking when collision is imminent
+- **Simulation Mode**: Test ADAS without CARLA (requires only pygame)
 
 ## Project Structure
 
 ```
 ADAS_CARLA/
-├── main.py              # Main entry point with demo
+├── main.py              # CARLA mode entry point
+├── run_simulation.py    # Simulation mode (no CARLA needed)
 ├── config.py            # Configuration parameters
 ├── requirements.txt     # Python dependencies
 ├── adas/
 │   ├── __init__.py
-│   ├── controller.py    # Main ADAS controller
+│   ├── controller.py        # Main ADAS controller
 │   ├── lane_following.py    # Lane following module
 │   ├── adaptive_cruise.py   # Adaptive cruise control
 │   └── vehicle_detection.py # Vehicle and cut-in detection
+├── simulation/
+│   ├── __init__.py
+│   ├── mock_carla.py        # Mock CARLA classes
+│   ├── vehicle_sim.py       # Vehicle physics simulation
+│   ├── world.py             # Simulated world
+│   ├── scenarios.py         # Test scenarios
+│   └── visualization.py     # 2D pygame visualization
 └── utils/
     ├── __init__.py
-    └── helpers.py       # Utility functions
+    └── helpers.py           # Utility functions
 ```
 
 ## Requirements
 
+### Simulation Mode (Recommended for testing)
 - Python 3.7+
-- CARLA Simulator 0.9.x
+- pygame
+- numpy
+
+### CARLA Mode
+- Python 3.7+
+- CARLA Simulator 0.9.x (requires 16GB+ RAM)
 - CARLA Python API
 - pygame
 - numpy
 
 ## Installation
 
-1. Install CARLA Simulator from [CARLA Releases](https://github.com/carla-simulator/carla/releases)
+```bash
+pip install -r requirements.txt
+```
 
-2. Install the CARLA Python API:
-   ```bash
-   # Option 1: Using pip (if available for your CARLA version)
-   pip install carla
-
-   # Option 2: From CARLA installation
-   cd /path/to/carla/PythonAPI/carla/dist
-   pip install carla-0.9.x-py3.x-linux-x86_64.whl
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+For CARLA mode, also install the CARLA Python API from [CARLA Releases](https://github.com/carla-simulator/carla/releases).
 
 ## Usage
+
+### Simulation Mode (No CARLA Required)
+
+Run the lightweight simulation with 2D visualization:
+
+```bash
+python run_simulation.py
+```
+
+This mode includes pre-built scenarios to test all ADAS features.
+
+### CARLA Mode
 
 1. Start the CARLA simulator:
    ```bash
    ./CarlaUE4.sh  # Linux
-   # or
    CarlaUE4.exe   # Windows
    ```
 
@@ -75,7 +92,20 @@ ADAS_CARLA/
 | SPACE | Toggle ADAS on/off |
 | UP / W | Increase target speed |
 | DOWN / S | Decrease target speed |
+| 1 | Load lead vehicle scenario |
+| 2 | Load cut-in scenario |
+| 3 | Load slow vehicle scenario |
+| 4 | Load traffic scenario |
+| 5 | Load emergency brake scenario |
 | ESC | Quit |
+
+### Test Scenarios (Simulation Mode)
+
+1. **Lead Vehicle** (Key 1): A vehicle driving ahead at constant speed
+2. **Cut-in** (Key 2): A vehicle from adjacent lane cuts in front
+3. **Slow Vehicle** (Key 3): A slow-moving vehicle ahead
+4. **Traffic** (Key 4): Multiple vehicles in various lanes
+5. **Emergency Brake** (Key 5): Lead vehicle suddenly brakes
 
 ## Configuration
 
