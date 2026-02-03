@@ -218,7 +218,3 @@ while True:
     if adas.is_emergency_braking():
         print("Emergency braking!")
 ```
-
-## License
-
-MIT License
