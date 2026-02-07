@@ -1,0 +1,7 @@
+# Simulation parameters
+simulation:
+  ros__parameters:
+    use_sim_time: true
+    physics_engine: ode
+    real_time_factor: 1.0
+    max_step_size: 0.001

@@ -1,0 +1,201 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="space_environment">
+
+    <!-- ============ Physics: Microgravity ============ -->
+    <physics type="ode">
+      <gravity>0 0 0</gravity>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>50</iters>
+          <sor>1.3</sor>
+        </solver>
+        <constraints>
+          <cfm>0.0</cfm>
+          <erp>0.2</erp>
+        </constraints>
+      </ode>
+    </physics>
+
+    <!-- ============ Scene: Dark space background ============ -->
+    <scene>
+      <ambient>0.1 0.1 0.15 1.0</ambient>
+      <background>0.02 0.02 0.05 1.0</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- ============ Lighting: Simulate sunlight ============ -->
+    <!-- Main directional "sun" light -->
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1.0 0.98 0.95 1</diffuse>
+      <specular>0.5 0.5 0.5 1</specular>
+      <direction>-0.5 0.3 -1.0</direction>
+    </light>
+
+    <!-- Ambient fill light (simulating reflected Earth albedo) -->
+    <light name="earth_albedo" type="directional">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 -5 0 0 0</pose>
+      <diffuse>0.1 0.12 0.15 1</diffuse>
+      <specular>0.0 0.0 0.0 1</specular>
+      <direction>0 0 1</direction>
+    </light>
+
+    <!-- ============ Spacecraft Base Platform ============ -->
+    <model name="spacecraft_platform">
+      <static>true</static>
+      <pose>0 0 -0.05 0 0 0</pose>
+      <link name="platform_link">
+        <visual name="platform_visual">
+          <geometry>
+            <box><size>1.0 0.6 0.1</size></box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.5 0.5 0.55 1</diffuse>
+            <specular>0.3 0.3 0.3 1</specular>
+          </material>
+        </visual>
+        <collision name="platform_collision">
+          <geometry>
+            <box><size>1.0 0.6 0.1</size></box>
+          </geometry>
+        </collision>
+      </link>
+
+      <!-- Solar panel left -->
+      <link name="solar_panel_left">
+        <pose>0 -0.8 0 0 0 0</pose>
+        <visual name="panel_visual">
+          <geometry>
+            <box><size>0.8 0.5 0.02</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.05 0.2 1</ambient>
+            <diffuse>0.1 0.1 0.4 1</diffuse>
+            <specular>0.6 0.6 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <!-- Solar panel right -->
+      <link name="solar_panel_right">
+        <pose>0 0.8 0 0 0 0</pose>
+        <visual name="panel_visual">
+          <geometry>
+            <box><size>0.8 0.5 0.02</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.05 0.2 1</ambient>
+            <diffuse>0.1 0.1 0.4 1</diffuse>
+            <specular>0.6 0.6 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+
+      <joint name="left_panel_joint" type="fixed">
+        <parent>platform_link</parent>
+        <child>solar_panel_left</child>
+      </joint>
+      <joint name="right_panel_joint" type="fixed">
+        <parent>platform_link</parent>
+        <child>solar_panel_right</child>
+      </joint>
+    </model>
+
+    <!-- ============ Target Satellite (for servicing) ============ -->
+    <model name="target_satellite">
+      <pose>1.5 0 0.5 0.1 0.2 0.3</pose>
+      <static>true</static>
+      <link name="satellite_body">
+        <visual name="body_visual">
+          <geometry>
+            <box><size>0.3 0.3 0.4</size></box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.6 0.3 1</ambient>
+            <diffuse>0.8 0.8 0.4 1</diffuse>
+          </material>
+        </visual>
+        <collision name="body_collision">
+          <geometry>
+            <box><size>0.3 0.3 0.4</size></box>
+          </geometry>
+        </collision>
+      </link>
+
+      <!-- ArUco-like marker panel on the target -->
+      <link name="marker_panel">
+        <pose>0.151 0 0 0 1.5708 0</pose>
+        <visual name="marker_visual">
+          <geometry>
+            <box><size>0.1 0.1 0.001</size></box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+
+      <joint name="marker_joint" type="fixed">
+        <parent>satellite_body</parent>
+        <child>marker_panel</child>
+      </joint>
+    </model>
+
+    <!-- ============ Floating Debris (small objects) ============ -->
+    <model name="debris_1">
+      <pose>0.8 0.5 0.8 0.5 0.3 0.1</pose>
+      <static>false</static>
+      <link name="debris_link">
+        <inertial>
+          <mass>0.1</mass>
+          <inertia>
+            <ixx>0.0001</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.0001</iyy><iyz>0</iyz><izz>0.0001</izz>
+          </inertia>
+        </inertial>
+        <visual name="debris_visual">
+          <geometry>
+            <box><size>0.05 0.08 0.03</size></box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="debris_collision">
+          <geometry>
+            <box><size>0.05 0.08 0.03</size></box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============ Starfield backdrop ============ -->
+    <model name="starfield">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="starfield_link">
+        <visual name="star_sphere">
+          <geometry>
+            <sphere><radius>50</radius></sphere>
+          </geometry>
+          <material>
+            <ambient>0.01 0.01 0.02 1</ambient>
+            <diffuse>0.02 0.02 0.04 1</diffuse>
+            <emissive>0.01 0.01 0.02 1</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

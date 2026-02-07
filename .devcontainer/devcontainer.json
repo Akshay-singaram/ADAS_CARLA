@@ -1,0 +1,61 @@
+{
+  "name": "ROS2 Space Arm Simulation",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {
+      "password": "vscode",
+      "webPort": "6080",
+      "vncPort": "5901"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true,
+      "username": "vscode"
+    }
+  },
+  "forwardPorts": [6080, 5901, 11345],
+  "portsAttributes": {
+    "6080": { "label": "noVNC Web", "onAutoForward": "openBrowser" },
+    "5901": { "label": "VNC Direct" },
+    "11345": { "label": "Gazebo Server" }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "ros.distro": "humble",
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "files.associations": {
+          "*.xacro": "xml",
+          "*.urdf": "xml",
+          "*.sdf": "xml",
+          "*.world": "xml"
+        }
+      },
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "redhat.vscode-xml",
+        "redhat.vscode-yaml",
+        "smilerobotics.urdf",
+        "nonanonno.vscode-ros2",
+        "streetsidesoftware.code-spell-checker"
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "ROS_DOMAIN_ID": "42",
+    "RMW_IMPLEMENTATION": "rmw_cyclonedds_cpp",
+    "LIBGL_ALWAYS_SOFTWARE": "1"
+  }
+}

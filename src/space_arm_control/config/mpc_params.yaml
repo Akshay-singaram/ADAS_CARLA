@@ -1,0 +1,35 @@
+mpc_controller:
+  ros__parameters:
+    # MPC horizon parameters
+    prediction_horizon: 20
+    control_horizon: 10
+    dt: 0.05  # 50ms timestep
+
+    # Joint configuration
+    num_joints: 6
+    joint_names:
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+
+    # Cost function weights
+    state_weight: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]       # Position tracking
+    velocity_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]           # Velocity damping
+    control_weight: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]      # Control effort
+    terminal_weight: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0]     # Terminal cost
+
+    # Joint torque limits (Nm)
+    torque_limits: [100.0, 100.0, 100.0, 50.0, 50.0, 30.0]
+
+    # Velocity limits (rad/s)
+    velocity_limits: [1.0, 1.0, 1.0, 1.5, 1.5, 2.0]
+
+    # Solver settings
+    solver_max_iter: 50
+    solver_tolerance: 1.0e-6
+
+    # Control loop rate (Hz)
+    control_rate: 20.0

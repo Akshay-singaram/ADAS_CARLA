@@ -1,0 +1,38 @@
+# Joint limits for the space arm
+joint_limits:
+  joint_1:
+    has_position_limits: true
+    min_position: -3.14159
+    max_position: 3.14159
+    max_velocity: 1.0
+    max_effort: 100.0
+  joint_2:
+    has_position_limits: true
+    min_position: -1.5708
+    max_position: 1.5708
+    max_velocity: 1.0
+    max_effort: 100.0
+  joint_3:
+    has_position_limits: true
+    min_position: -2.3562
+    max_position: 2.3562
+    max_velocity: 1.0
+    max_effort: 100.0
+  joint_4:
+    has_position_limits: true
+    min_position: -3.14159
+    max_position: 3.14159
+    max_velocity: 1.5
+    max_effort: 50.0
+  joint_5:
+    has_position_limits: true
+    min_position: -1.5708
+    max_position: 1.5708
+    max_velocity: 1.5
+    max_effort: 50.0
+  joint_6:
+    has_position_limits: true
+    min_position: -3.14159
+    max_position: 3.14159
+    max_velocity: 2.0
+    max_effort: 30.0

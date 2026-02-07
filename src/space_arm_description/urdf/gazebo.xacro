@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Gazebo material colors (Gazebo doesn't use URDF materials) -->
+  <gazebo reference="base_link">
+    <material>Gazebo/DarkGrey</material>
+  </gazebo>
+  <gazebo reference="link_1">
+    <material>Gazebo/Blue</material>
+  </gazebo>
+  <gazebo reference="link_2">
+    <material>Gazebo/White</material>
+  </gazebo>
+  <gazebo reference="link_3">
+    <material>Gazebo/Blue</material>
+  </gazebo>
+  <gazebo reference="link_4">
+    <material>Gazebo/DarkGrey</material>
+  </gazebo>
+  <gazebo reference="link_5">
+    <material>Gazebo/White</material>
+  </gazebo>
+  <gazebo reference="link_6">
+    <material>Gazebo/Orange</material>
+  </gazebo>
+  <gazebo reference="camera_link">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
+  <!-- Gazebo ros2_control plugin -->
+  <gazebo>
+    <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+      <robot_param>robot_description</robot_param>
+      <robot_param_node>robot_state_publisher</robot_param_node>
+      <parameters>$(find space_arm_control)/config/controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>

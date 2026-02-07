@@ -1,0 +1,165 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="space_arm">
+
+  <!-- Include modular components -->
+  <xacro:include filename="$(find space_arm_description)/urdf/materials.xacro"/>
+  <xacro:include filename="$(find space_arm_description)/urdf/arm_macros.xacro"/>
+  <xacro:include filename="$(find space_arm_description)/urdf/camera.xacro"/>
+  <xacro:include filename="$(find space_arm_description)/urdf/gazebo.xacro"/>
+
+  <!-- ================= Parameters ================= -->
+  <xacro:property name="base_mass" value="10.0"/>
+  <xacro:property name="link_mass" value="2.0"/>
+  <xacro:property name="joint_effort" value="100.0"/>
+  <xacro:property name="joint_velocity" value="1.0"/>
+
+  <!-- ================= World Link ================= -->
+  <!-- In space, the base is typically fixed to a spacecraft -->
+  <link name="world"/>
+
+  <joint name="fixed_base_joint" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ================= Base Link ================= -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.12" length="0.08"/>
+      </geometry>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <material name="dark_grey"/>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.12" length="0.08"/>
+      </geometry>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="${base_mass}"/>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <inertia ixx="0.04" ixy="0" ixz="0" iyy="0.04" iyz="0" izz="0.07"/>
+    </inertial>
+  </link>
+
+  <!-- ================= Arm Links via Macro ================= -->
+  <!-- Joint 1: Base rotation (yaw) -->
+  <xacro:arm_joint name="joint_1" parent="base_link" child="link_1"
+    origin_xyz="0 0 0.08" origin_rpy="0 0 0"
+    axis="0 0 1" lower="${-pi}" upper="${pi}"
+    effort="${joint_effort}" velocity="${joint_velocity}"/>
+  <xacro:arm_link name="link_1" length="0.15" radius="0.05" mass="${link_mass}"
+    origin_xyz="0 0 0.075" color="blue"/>
+
+  <!-- Joint 2: Shoulder pitch -->
+  <xacro:arm_joint name="joint_2" parent="link_1" child="link_2"
+    origin_xyz="0 0 0.15" origin_rpy="0 0 0"
+    axis="0 1 0" lower="${-pi/2}" upper="${pi/2}"
+    effort="${joint_effort}" velocity="${joint_velocity}"/>
+  <xacro:arm_link name="link_2" length="0.30" radius="0.04" mass="${link_mass}"
+    origin_xyz="0 0 0.15" color="white"/>
+
+  <!-- Joint 3: Elbow pitch -->
+  <xacro:arm_joint name="joint_3" parent="link_2" child="link_3"
+    origin_xyz="0 0 0.30" origin_rpy="0 0 0"
+    axis="0 1 0" lower="${-pi*0.75}" upper="${pi*0.75}"
+    effort="${joint_effort}" velocity="${joint_velocity}"/>
+  <xacro:arm_link name="link_3" length="0.25" radius="0.035" mass="${link_mass * 0.8}"
+    origin_xyz="0 0 0.125" color="blue"/>
+
+  <!-- Joint 4: Wrist roll -->
+  <xacro:arm_joint name="joint_4" parent="link_3" child="link_4"
+    origin_xyz="0 0 0.25" origin_rpy="0 0 0"
+    axis="1 0 0" lower="${-pi}" upper="${pi}"
+    effort="${joint_effort * 0.5}" velocity="${joint_velocity * 1.5}"/>
+  <xacro:arm_link name="link_4" length="0.10" radius="0.03" mass="${link_mass * 0.5}"
+    origin_xyz="0 0 0.05" color="dark_grey"/>
+
+  <!-- Joint 5: Wrist pitch -->
+  <xacro:arm_joint name="joint_5" parent="link_4" child="link_5"
+    origin_xyz="0 0 0.10" origin_rpy="0 0 0"
+    axis="0 1 0" lower="${-pi/2}" upper="${pi/2}"
+    effort="${joint_effort * 0.5}" velocity="${joint_velocity * 1.5}"/>
+  <xacro:arm_link name="link_5" length="0.08" radius="0.025" mass="${link_mass * 0.4}"
+    origin_xyz="0 0 0.04" color="white"/>
+
+  <!-- Joint 6: End-effector rotation -->
+  <xacro:arm_joint name="joint_6" parent="link_5" child="link_6"
+    origin_xyz="0 0 0.08" origin_rpy="0 0 0"
+    axis="0 0 1" lower="${-pi}" upper="${pi}"
+    effort="${joint_effort * 0.3}" velocity="${joint_velocity * 2.0}"/>
+  <xacro:arm_link name="link_6" length="0.04" radius="0.03" mass="${link_mass * 0.3}"
+    origin_xyz="0 0 0.02" color="orange"/>
+
+  <!-- ================= End Effector ================= -->
+  <joint name="ee_fixed_joint" type="fixed">
+    <parent link="link_6"/>
+    <child link="ee_link"/>
+    <origin xyz="0 0 0.04" rpy="0 0 0"/>
+  </joint>
+
+  <link name="ee_link">
+    <visual>
+      <geometry>
+        <sphere radius="0.015"/>
+      </geometry>
+      <material name="orange"/>
+    </visual>
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/>
+    </inertial>
+  </link>
+
+  <!-- ================= Camera on End Effector ================= -->
+  <xacro:ee_camera parent="link_6"
+    camera_xyz="0.03 0 0.02" camera_rpy="0 ${pi/6} 0"
+    image_width="640" image_height="480" update_rate="30"/>
+
+  <!-- ================= ros2_control ================= -->
+  <ros2_control name="space_arm_control" type="system">
+    <hardware>
+      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+    </hardware>
+    <joint name="joint_1">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="joint_2">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="joint_3">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="joint_4">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="joint_5">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="joint_6">
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </ros2_control>
+
+</robot>

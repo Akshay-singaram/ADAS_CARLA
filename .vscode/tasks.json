@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "colcon build",
+      "type": "shell",
+      "command": "source /opt/ros/humble/setup.bash && colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "colcon build (debug)",
+      "type": "shell",
+      "command": "source /opt/ros/humble/setup.bash && colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Debug",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Launch full simulation",
+      "type": "shell",
+      "command": "source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 launch space_arm_simulation full_simulation.launch.py",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

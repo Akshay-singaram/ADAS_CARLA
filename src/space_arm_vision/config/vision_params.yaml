@@ -1,0 +1,11 @@
+visual_servoing:
+  ros__parameters:
+    servoing_gain: 0.5
+    feature_threshold: 5.0
+    max_velocity: 0.1
+    target_topic: /space_arm/ee_camera/image_raw
+
+target_detector:
+  ros__parameters:
+    marker_size: 0.1
+    detection_method: aruco

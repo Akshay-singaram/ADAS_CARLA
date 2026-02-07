@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- End-effector camera macro -->
+  <xacro:macro name="ee_camera" params="parent camera_xyz camera_rpy image_width image_height update_rate">
+
+    <!-- Camera mount -->
+    <joint name="camera_mount_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="camera_link"/>
+      <origin xyz="${camera_xyz}" rpy="${camera_rpy}"/>
+    </joint>
+
+    <link name="camera_link">
+      <visual>
+        <geometry>
+          <box size="0.02 0.04 0.02"/>
+        </geometry>
+        <material name="black"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.02 0.04 0.02"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="0.1"/>
+        <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
+      </inertial>
+    </link>
+
+    <!-- Camera optical frame (Z forward, X right, Y down - standard camera convention) -->
+    <joint name="camera_optical_joint" type="fixed">
+      <parent link="camera_link"/>
+      <child link="camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+
+    <link name="camera_optical_frame"/>
+
+    <!-- Gazebo camera sensor -->
+    <gazebo reference="camera_link">
+      <sensor name="ee_camera" type="camera">
+        <always_on>true</always_on>
+        <update_rate>${update_rate}</update_rate>
+        <visualize>true</visualize>
+        <camera>
+          <horizontal_fov>1.089</horizontal_fov>
+          <image>
+            <width>${image_width}</width>
+            <height>${image_height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>50.0</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </camera>
+        <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+          <ros>
+            <namespace>/space_arm</namespace>
+            <remapping>image_raw:=ee_camera/image_raw</remapping>
+            <remapping>camera_info:=ee_camera/camera_info</remapping>
+          </ros>
+          <camera_name>ee_camera</camera_name>
+          <frame_name>camera_optical_frame</frame_name>
+        </plugin>
+      </sensor>
+    </gazebo>
+
+  </xacro:macro>
+
+</robot>

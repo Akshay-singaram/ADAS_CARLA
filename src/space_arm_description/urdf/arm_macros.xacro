@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Macro for cylindrical arm links -->
+  <xacro:macro name="arm_link" params="name length radius mass origin_xyz color">
+    <link name="${name}">
+      <visual>
+        <geometry>
+          <cylinder radius="${radius}" length="${length}"/>
+        </geometry>
+        <origin xyz="${origin_xyz}" rpy="0 0 0"/>
+        <material name="${color}"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${radius}" length="${length}"/>
+        </geometry>
+        <origin xyz="${origin_xyz}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="${mass}"/>
+        <origin xyz="${origin_xyz}" rpy="0 0 0"/>
+        <!-- Cylinder inertia: Ixx=Iyy = m(3r^2+h^2)/12, Izz = mr^2/2 -->
+        <inertia
+          ixx="${mass * (3*radius*radius + length*length) / 12.0}"
+          ixy="0" ixz="0"
+          iyy="${mass * (3*radius*radius + length*length) / 12.0}"
+          iyz="0"
+          izz="${mass * radius * radius / 2.0}"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- Macro for revolute joints -->
+  <xacro:macro name="arm_joint" params="name parent child origin_xyz origin_rpy axis lower upper effort velocity">
+    <joint name="${name}" type="revolute">
+      <parent link="${parent}"/>
+      <child link="${child}"/>
+      <origin xyz="${origin_xyz}" rpy="${origin_rpy}"/>
+      <axis xyz="${axis}"/>
+      <limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+      <dynamics damping="0.1" friction="0.01"/>
+    </joint>
+  </xacro:macro>
+
+</robot>

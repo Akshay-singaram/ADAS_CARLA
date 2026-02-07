@@ -1,0 +1,24 @@
+{
+  "ros.distro": "humble",
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "python.analysis.extraPaths": [
+    "/opt/ros/humble/lib/python3.10/dist-packages",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages"
+  ],
+  "files.associations": {
+    "*.xacro": "xml",
+    "*.urdf": "xml",
+    "*.sdf": "xml",
+    "*.world": "xml",
+    "*.launch.py": "python"
+  },
+  "search.exclude": {
+    "**/build": true,
+    "**/install": true,
+    "**/log": true
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python",
+    "editor.formatOnSave": true
+  }
+}
